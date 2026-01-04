@@ -45,6 +45,11 @@ export async function fetchModel(modelId: string) {
   return response.json();
 }
 
+export async function fetchModelDetail(modelId: string) {
+  const response = await fetch(`${API_BASE}/models/${modelId}/detail`);
+  return response.json();
+}
+
 export async function trainModel(config: {
   name: string;
   model_type: string;

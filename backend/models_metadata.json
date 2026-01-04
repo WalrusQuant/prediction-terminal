@@ -1,40 +1,27 @@
 {
-  "model_538d0495": {
-    "id": "model_538d0495",
+  "model_dad5dcd9": {
+    "id": "model_dad5dcd9",
     "name": "NBA Test Model",
-    "model_type": "random_forest",
+    "model_type": "xgboost",
     "dataset_id": "dataset_1",
     "features": [
-      "assists",
-      "fast_break_points",
-      "field_goal_pct",
-      "field_goals_made",
-      "field_goals_attempted",
-      "free_throw_pct",
-      "free_throws_made",
-      "free_throws_attempted",
-      "steals",
-      "team_turnovers",
-      "three_point_field_goal_pct",
-      "three_point_field_goals_made",
-      "three_point_field_goals_attempted",
-      "true_shooting_percentage",
       "effective_field_goal_percentage",
-      "possessions",
-      "two_point_field_goals_percentage",
-      "turnovers"
+      "true_shooting_percentage"
     ],
     "target": "team_score",
     "status": "trained",
     "metrics": {
-      "r2_score": 0.9945,
-      "mse": 1.059,
-      "mae": 0.7345,
-      "rmse": 1.0291
+      "r2_score": 0.6546,
+      "mse": 66.4406,
+      "mae": 6.0698,
+      "rmse": 8.1511,
+      "train_r2": 0.6925,
+      "train_samples": 47318,
+      "test_samples": 11830
     },
-    "accuracy": 0.9945,
-    "created_at": "2026-01-04T12:34:15.960968",
-    "last_run": "2026-01-04T12:34:15.960976",
+    "accuracy": 0.6546,
+    "created_at": "2026-01-04T13:01:26.802821",
+    "last_run": "2026-01-04T13:01:26.802828",
     "description": null
   }
 }

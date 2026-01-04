@@ -21,9 +21,10 @@ interface ModelsTableProps {
   loading: boolean;
   onPredict: (model: Model) => void;
   onDelete: (modelId: string) => void;
+  onViewDetail: (model: Model) => void;
 }
 
-export function ModelsTable({ models, loading, onPredict, onDelete }: ModelsTableProps) {
+export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail }: ModelsTableProps) {
   if (loading) {
     return (
       <div className="terminal-panel">
@@ -89,6 +90,16 @@ export function ModelsTable({ models, loading, onPredict, onDelete }: ModelsTabl
                 <StatusBadge status={model.status} />
               </td>
               <td>
+                <button
+                  onClick={() => onViewDetail(model)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    marginRight: '8px',
+                  }}
+                >
+                  View
+                </button>
                 <button
                   onClick={() => onPredict(model)}
                   disabled={model.status !== 'trained'}

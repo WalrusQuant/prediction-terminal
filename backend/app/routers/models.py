@@ -88,6 +88,28 @@ async def get_model(model_id: str):
     return models_registry[model_id]
 
 
+@router.get("/{model_id}/detail")
+async def get_model_detail(model_id: str):
+    """Get detailed model info including visualization data for charts."""
+    _load_persisted_models()
+    if model_id not in models_registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # Load model from disk to get visualization data
+    model_data = ml_service.load_model(model_id)
+    if not model_data:
+        raise HTTPException(status_code=404, detail="Model data not found on disk")
+
+    model_info = models_registry[model_id].copy()
+
+    # Add visualization data
+    model_info["test_comparison"] = model_data.get("test_comparison", [])
+    model_info["residual_distribution"] = model_data.get("residual_distribution", [])
+    model_info["feature_importance"] = model_data.get("feature_importance", [])
+
+    return model_info
+
+
 @router.post("/")
 async def train_model(request: TrainModelRequest):
     # Validate dataset exists
@@ -120,7 +142,7 @@ async def train_model(request: TrainModelRequest):
             data=dataset["data"],
         )
 
-        # Save model to disk
+        # Save model to disk (including visualization data)
         ml_service.save_model(
             model_id,
             {
@@ -128,6 +150,9 @@ async def train_model(request: TrainModelRequest):
                 "feature_names": result["feature_names"],
                 "target_name": result["target_name"],
                 "model_type": request.model_type.value,
+                "test_comparison": result.get("test_comparison", []),
+                "residual_distribution": result.get("residual_distribution", []),
+                "feature_importance": result.get("feature_importance", []),
             },
         )
 

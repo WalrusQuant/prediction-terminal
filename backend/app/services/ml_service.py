@@ -74,20 +74,75 @@ class MLService:
 
         model.fit(X_train, y_train)
 
-        # Evaluate
-        y_pred = model.predict(X_test)
+        # Evaluate on test set
+        y_pred_test = model.predict(X_test)
+        y_pred_train = model.predict(X_train)
+
+        # Calculate metrics
         metrics = {
-            "r2_score": round(float(r2_score(y_test, y_pred)), 4),
-            "mse": round(float(mean_squared_error(y_test, y_pred)), 4),
-            "mae": round(float(mean_absolute_error(y_test, y_pred)), 4),
-            "rmse": round(float(np.sqrt(mean_squared_error(y_test, y_pred))), 4),
+            "r2_score": round(float(r2_score(y_test, y_pred_test)), 4),
+            "mse": round(float(mean_squared_error(y_test, y_pred_test)), 4),
+            "mae": round(float(mean_absolute_error(y_test, y_pred_test)), 4),
+            "rmse": round(float(np.sqrt(mean_squared_error(y_test, y_pred_test))), 4),
+            "train_r2": round(float(r2_score(y_train, y_pred_train)), 4),
+            "train_samples": len(X_train),
+            "test_samples": len(X_test),
         }
+
+        # Store actual vs predicted for visualization (limit to 100 points for performance)
+        test_comparison = []
+        indices = list(range(len(y_test)))
+        if len(indices) > 100:
+            # Sample evenly across the range
+            step = len(indices) // 100
+            indices = indices[::step][:100]
+
+        y_test_arr = y_test.values if hasattr(y_test, 'values') else np.array(y_test)
+        for i, idx in enumerate(indices):
+            actual_val = y_test_arr[idx] if idx < len(y_test_arr) else y_test_arr[i]
+            pred_val = y_pred_test[idx] if idx < len(y_pred_test) else y_pred_test[i]
+            test_comparison.append({
+                "actual": round(float(actual_val), 4),
+                "predicted": round(float(pred_val), 4),
+            })
+
+        # Calculate residuals distribution
+        residuals = y_test_arr - y_pred_test
+        residual_bins = np.histogram(residuals, bins=20)
+        residual_distribution = [
+            {"range": f"{residual_bins[1][i]:.2f}", "count": int(residual_bins[0][i])}
+            for i in range(len(residual_bins[0]))
+        ]
+
+        # Feature importance (for tree-based models)
+        feature_importance = []
+        if hasattr(model, 'feature_importances_'):
+            importances = model.feature_importances_
+            for fname, imp in zip(X.columns, importances):
+                feature_importance.append({
+                    "feature": fname,
+                    "importance": round(float(imp), 4)
+                })
+            feature_importance.sort(key=lambda x: x["importance"], reverse=True)
+        elif hasattr(model, 'coef_'):
+            # For linear regression, use absolute coefficients
+            coefs = np.abs(model.coef_)
+            total = coefs.sum() if coefs.sum() > 0 else 1
+            for fname, coef in zip(X.columns, coefs):
+                feature_importance.append({
+                    "feature": fname,
+                    "importance": round(float(coef / total), 4)
+                })
+            feature_importance.sort(key=lambda x: x["importance"], reverse=True)
 
         return {
             "model": model,
             "metrics": metrics,
             "feature_names": list(X.columns),
             "target_name": target,
+            "test_comparison": test_comparison,
+            "residual_distribution": residual_distribution,
+            "feature_importance": feature_importance,
         }
 
     def save_model(self, model_id: str, model_data: Dict) -> str:

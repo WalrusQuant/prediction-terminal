@@ -7,6 +7,7 @@ import { DatasetDetailModal } from './components/DatasetDetailModal';
 import type { DatasetDetails, StatsData } from './components/DatasetDetailModal';
 import { TrainModelModal } from './components/TrainModelModal';
 import { PredictModal } from './components/PredictModal';
+import { ModelDetailModal } from './components/ModelDetailModal';
 import {
   fetchPredictions,
   fetchModels,
@@ -17,6 +18,7 @@ import {
   deleteDataset,
   trainModel,
   deleteModel,
+  fetchModelDetail,
   createSinglePrediction,
   createBatchPredictions,
   clearPredictions,
@@ -62,6 +64,8 @@ function App() {
   const [viewingStats, setViewingStats] = useState<StatsData | null>(null);
   const [trainingDataset, setTrainingDataset] = useState<Dataset | null>(null);
   const [predictingModel, setPredictingModel] = useState<Model | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [viewingModelDetail, setViewingModelDetail] = useState<any | null>(null);
 
   useEffect(() => {
     loadData();
@@ -164,6 +168,15 @@ function App() {
     setPredictingModel(model);
   };
 
+  const handleViewModelDetail = async (model: Model) => {
+    try {
+      const detail = await fetchModelDetail(model.id);
+      setViewingModelDetail(detail);
+    } catch (error) {
+      console.error('Failed to load model details:', error);
+    }
+  };
+
   // Prediction handlers
   const handleSinglePredict = async (
     modelId: string,
@@ -228,6 +241,7 @@ function App() {
               loading={loading}
               onPredict={handlePredict}
               onDelete={handleDeleteModel}
+              onViewDetail={handleViewModelDetail}
             />
           )}
           {activeTab === 'data' && (
@@ -269,6 +283,13 @@ function App() {
           onSinglePredict={handleSinglePredict}
           onBatchPredict={handleBatchPredict}
           onClose={() => setPredictingModel(null)}
+        />
+      )}
+
+      {viewingModelDetail && (
+        <ModelDetailModal
+          model={viewingModelDetail}
+          onClose={() => setViewingModelDetail(null)}
         />
       )}
 
