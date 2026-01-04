@@ -5,21 +5,29 @@ interface Dataset {
   name: string;
   rows: number;
   columns: number;
+  features?: string[];
 }
 
 interface DataPanelProps {
   datasets: Dataset[];
   loading: boolean;
   onUpload: (file: File) => void;
+  onView: (dataset: Dataset) => void;
+  onUse: (dataset: Dataset) => void;
+  onDelete: (datasetId: string) => void;
 }
 
-export function DataPanel({ datasets, loading, onUpload }: DataPanelProps) {
+export function DataPanel({ datasets, loading, onUpload, onView, onUse, onDelete }: DataPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       onUpload(file);
+      // Reset input so same file can be uploaded again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -68,18 +76,39 @@ export function DataPanel({ datasets, loading, onUpload }: DataPanelProps) {
                 <td className="text-cyan">{dataset.rows.toLocaleString()}</td>
                 <td>{dataset.columns}</td>
                 <td>
-                  <button style={{
-                    padding: '4px 8px',
-                    fontSize: '11px',
-                    marginRight: '8px'
-                  }}>
+                  <button
+                    onClick={() => onView(dataset)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      marginRight: '8px'
+                    }}
+                  >
                     View
                   </button>
-                  <button style={{
-                    padding: '4px 8px',
-                    fontSize: '11px'
-                  }}>
-                    Use
+                  <button
+                    onClick={() => onUse(dataset)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      marginRight: '8px',
+                      background: 'var(--cyan)',
+                      color: 'var(--bg-primary)',
+                      borderColor: 'var(--cyan)'
+                    }}
+                  >
+                    Train Model
+                  </button>
+                  <button
+                    onClick={() => onDelete(dataset.id)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      color: 'var(--red)',
+                      borderColor: 'var(--red)'
+                    }}
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>

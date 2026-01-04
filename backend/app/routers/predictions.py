@@ -1,91 +1,129 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import Optional
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, ConfigDict
+from typing import List, Dict, Any, Optional
 from datetime import datetime
+import uuid
+
+from app.services.ml_service import MLService
+from app.routers.models import models_registry, _load_persisted_models
 
 router = APIRouter()
+ml_service = MLService()
+
+# Store predictions history
+predictions_history: Dict[str, Dict] = {}
 
 
-class Prediction(BaseModel):
-    id: str
-    player: str
-    market: str
-    prop_type: str
-    predicted_value: float
-    confidence: float
-    current_line: float
-    edge: float
-    timestamp: datetime
+class SinglePredictionRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    model_id: str
+    input_data: Dict[str, Any]
+    label: Optional[str] = None
 
 
-# Sample data matching your terminal aesthetic
-SAMPLE_PREDICTIONS = [
-    {
-        "id": "1",
-        "player": "Ajay Mitchell",
-        "market": "Player Props",
-        "prop_type": "Pts+Rebs+Asts",
-        "predicted_value": 28.5,
-        "confidence": 0.72,
-        "current_line": 26.5,
-        "edge": 7.5,
-        "timestamp": datetime.now(),
-    },
-    {
-        "id": "2",
-        "player": "Devin Booker",
-        "market": "Player Props",
-        "prop_type": "Points",
-        "predicted_value": 27.2,
-        "confidence": 0.68,
-        "current_line": 25.5,
-        "edge": 6.7,
-        "timestamp": datetime.now(),
-    },
-    {
-        "id": "3",
-        "player": "Grayson Allen",
-        "market": "Player Props",
-        "prop_type": "Points",
-        "predicted_value": 14.8,
-        "confidence": 0.65,
-        "current_line": 13.5,
-        "edge": 9.6,
-        "timestamp": datetime.now(),
-    },
-    {
-        "id": "4",
-        "player": "Mark Williams",
-        "market": "Player Props",
-        "prop_type": "Rebounds",
-        "predicted_value": 9.2,
-        "confidence": 0.71,
-        "current_line": 8.5,
-        "edge": 8.2,
-        "timestamp": datetime.now(),
-    },
-    {
-        "id": "5",
-        "player": "Royce O'Neale",
-        "market": "Player Props",
-        "prop_type": "3 Point FG",
-        "predicted_value": 2.1,
-        "confidence": 0.58,
-        "current_line": 1.5,
-        "edge": 12.3,
-        "timestamp": datetime.now(),
-    },
-]
+class BatchPredictionRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    model_id: str
+    data: List[Dict[str, Any]]
+    labels: Optional[List[str]] = None
 
 
 @router.get("/")
 async def get_predictions():
-    return {"predictions": SAMPLE_PREDICTIONS}
+    return {"predictions": list(predictions_history.values())}
 
 
-@router.get("/{prediction_id}")
-async def get_prediction(prediction_id: str):
-    for pred in SAMPLE_PREDICTIONS:
-        if pred["id"] == prediction_id:
-            return pred
-    return {"error": "Prediction not found"}
+@router.post("/single")
+async def create_single_prediction(request: SinglePredictionRequest):
+    _load_persisted_models()
+
+    if request.model_id not in models_registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    try:
+        predictions = ml_service.predict(request.model_id, [request.input_data])
+        predicted_value = predictions[0]
+
+        model_info = models_registry[request.model_id]
+
+        pred_id = f"pred_{uuid.uuid4().hex[:8]}"
+        label = request.label or "Single prediction"
+
+        prediction_record = {
+            "id": pred_id,
+            "model_id": request.model_id,
+            "model_name": model_info["name"],
+            "label": label,
+            "target": model_info["target"],
+            "predicted_value": predicted_value,
+            "input_data": request.input_data,
+            "timestamp": datetime.now().isoformat(),
+        }
+        predictions_history[pred_id] = prediction_record
+
+        return {"prediction": prediction_record}
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/batch")
+async def create_batch_predictions(request: BatchPredictionRequest):
+    _load_persisted_models()
+
+    if request.model_id not in models_registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    if not request.data:
+        raise HTTPException(status_code=400, detail="No data provided")
+
+    try:
+        predictions = ml_service.predict(request.model_id, request.data)
+        model_info = models_registry[request.model_id]
+
+        results = []
+        for i, pred in enumerate(predictions):
+            pred_id = f"pred_{uuid.uuid4().hex[:8]}"
+            label = (
+                request.labels[i]
+                if request.labels and i < len(request.labels)
+                else f"Row {i + 1}"
+            )
+
+            prediction_record = {
+                "id": pred_id,
+                "model_id": request.model_id,
+                "model_name": model_info["name"],
+                "label": label,
+                "target": model_info["target"],
+                "predicted_value": pred,
+                "input_data": request.data[i],
+                "timestamp": datetime.now().isoformat(),
+            }
+            predictions_history[pred_id] = prediction_record
+            results.append(prediction_record)
+
+        return {"predictions": results, "count": len(results)}
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{prediction_id}")
+async def delete_prediction(prediction_id: str):
+    if prediction_id in predictions_history:
+        del predictions_history[prediction_id]
+        return {"message": "Prediction deleted", "prediction_id": prediction_id}
+    raise HTTPException(status_code=404, detail="Prediction not found")
+
+
+@router.delete("/")
+async def clear_predictions():
+    predictions_history.clear()
+    return {"message": "All predictions cleared"}
