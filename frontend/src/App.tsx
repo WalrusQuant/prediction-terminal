@@ -30,6 +30,7 @@ import {
   createSinglePrediction,
   createBatchPredictions,
   clearPredictions,
+  deletePrediction,
   toggleModelFavorite,
 } from './api/client';
 
@@ -311,6 +312,15 @@ function App() {
                 setPredictions(predRes.predictions || []);
               }}
               onShowAccuracy={() => setShowAccuracyDashboard(true)}
+              onDelete={async (predictionId) => {
+                try {
+                  await deletePrediction(predictionId);
+                  const predRes = await fetchPredictions();
+                  setPredictions(predRes.predictions || []);
+                } catch (err) {
+                  console.error('Failed to delete prediction:', err);
+                }
+              }}
             />
           )}
           {activeTab === 'models' && (

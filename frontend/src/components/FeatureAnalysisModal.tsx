@@ -35,12 +35,13 @@ const recommendationLabels: Record<string, string> = {
 
 export function FeatureAnalysisModal({
   datasetId,
-  datasetName,
+  datasetName: _datasetName,
   target,
   currentFeatures,
   onClose,
   onApply,
 }: FeatureAnalysisModalProps) {
+  void _datasetName; // Suppress unused variable warning
   const [analysis, setAnalysis] = useState<FeatureAnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -263,6 +263,13 @@ export async function clearPredictions() {
   return response.json();
 }
 
+export async function deletePrediction(predictionId: string) {
+  const response = await fetch(`${API_BASE}/predictions/${predictionId}`, {
+    method: 'DELETE',
+  });
+  return response.json();
+}
+
 // Dataset Visualization
 export interface HistogramBin {
   range: string;

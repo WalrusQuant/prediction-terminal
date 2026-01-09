@@ -46,7 +46,8 @@ export function QuickPredictBar({ model, onUnpin, onPredictionMade }: QuickPredi
         throw new Error(result.detail || result.error);
       }
 
-      const predValue = Number(result.prediction);
+      // result.prediction is an object with predicted_value, not a number directly
+      const predValue = Number(result.prediction?.predicted_value ?? result.prediction);
       setLastPrediction(predValue);
       onPredictionMade(predValue);
     } catch (err) {

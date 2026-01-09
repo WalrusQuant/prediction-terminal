@@ -24,6 +24,7 @@ interface PredictionsTableProps {
   onClear: () => void;
   onPredictionUpdated?: () => void;
   onShowAccuracy?: () => void;
+  onDelete?: (predictionId: string) => void;
 }
 
 function exportToCSV(predictions: Prediction[]) {
@@ -73,7 +74,7 @@ function exportToCSV(predictions: Prediction[]) {
   URL.revokeObjectURL(link.href);
 }
 
-export function PredictionsTable({ predictions, loading, onClear, onPredictionUpdated, onShowAccuracy }: PredictionsTableProps) {
+export function PredictionsTable({ predictions, loading, onClear, onPredictionUpdated, onShowAccuracy, onDelete }: PredictionsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
@@ -189,6 +190,7 @@ export function PredictionsTable({ predictions, loading, onClear, onPredictionUp
                 <th>Error</th>
                 <th>Inputs</th>
                 <th>Time</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -288,6 +290,33 @@ export function PredictionsTable({ predictions, loading, onClear, onPredictionUp
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>
                     {formatTime(pred.timestamp)}
+                  </td>
+                  <td>
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(pred.id)}
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: '10px',
+                          background: 'transparent',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '2px',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                        }}
+                        title="Delete prediction"
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--red)';
+                          e.currentTarget.style.color = 'var(--red)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
+                          e.currentTarget.style.color = 'var(--text-muted)';
+                        }}
+                      >
+                        x
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
