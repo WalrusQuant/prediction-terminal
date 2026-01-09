@@ -8,6 +8,14 @@ import type { DatasetDetails, StatsData } from './components/DatasetDetailModal'
 import { TrainModelModal } from './components/TrainModelModal';
 import { PredictModal } from './components/PredictModal';
 import { ModelDetailModal } from './components/ModelDetailModal';
+import { DataEditorModal } from './components/DataEditorModal';
+import { ModelCompareModal } from './components/ModelCompareModal';
+import { DataVisualizationModal } from './components/DataVisualizationModal';
+import { ImportUrlModal } from './components/ImportUrlModal';
+import { QuickPredictBar } from './components/QuickPredictBar';
+import { AccuracyDashboard } from './components/AccuracyDashboard';
+import { EnsembleModal } from './components/EnsembleModal';
+import { useToast } from './components/Toast';
 import {
   fetchPredictions,
   fetchModels,
@@ -22,6 +30,7 @@ import {
   createSinglePrediction,
   createBatchPredictions,
   clearPredictions,
+  toggleModelFavorite,
 } from './api/client';
 
 interface Dataset {
@@ -50,14 +59,32 @@ interface Model {
   target: string;
   created_at: string;
   last_run: string | null;
+  is_favorite?: boolean;
 }
 
 function App() {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('data');
   const [predictions, setPredictions] = useState([]);
   const [models, setModels] = useState<Model[]>([]);
   const [datasets, setDatasets] = useState<DatasetWithOptionalFeatures[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Theme state
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   // Modal states
   const [viewingDataset, setViewingDataset] = useState<DatasetDetails | null>(null);
@@ -66,6 +93,13 @@ function App() {
   const [predictingModel, setPredictingModel] = useState<Model | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [viewingModelDetail, setViewingModelDetail] = useState<any | null>(null);
+  const [editingDataset, setEditingDataset] = useState<{ id: string; name: string } | null>(null);
+  const [comparingModels, setComparingModels] = useState(false);
+  const [visualizingDataset, setVisualizingDataset] = useState<{ id: string; name: string } | null>(null);
+  const [showImportUrl, setShowImportUrl] = useState(false);
+  const [pinnedModel, setPinnedModel] = useState<Model | null>(null);
+  const [showAccuracyDashboard, setShowAccuracyDashboard] = useState(false);
+  const [showEnsemble, setShowEnsemble] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -84,6 +118,7 @@ function App() {
       setDatasets(dataRes.datasets || []);
     } catch (error) {
       console.error('Failed to load data:', error);
+      showToast('error', `Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}. Is the backend running?`);
     }
     setLoading(false);
   };
@@ -91,11 +126,17 @@ function App() {
   // Dataset handlers
   const handleUpload = async (file: File) => {
     try {
-      await uploadDataset(file);
+      const result = await uploadDataset(file);
+      if (result.error) {
+        showToast('error', `Upload failed: ${result.error}`);
+        return;
+      }
       const dataRes = await fetchDatasets();
       setDatasets(dataRes.datasets || []);
+      showToast('success', `Dataset "${file.name}" uploaded successfully`);
     } catch (error) {
       console.error('Failed to upload:', error);
+      showToast('error', 'Failed to upload dataset');
     }
   };
 
@@ -131,9 +172,20 @@ function App() {
       await deleteDataset(datasetId);
       const dataRes = await fetchDatasets();
       setDatasets(dataRes.datasets || []);
+      showToast('success', 'Dataset deleted');
     } catch (error) {
       console.error('Failed to delete dataset:', error);
+      showToast('error', 'Failed to delete dataset');
     }
+  };
+
+  const handleEditDataset = (dataset: DatasetWithOptionalFeatures) => {
+    setEditingDataset({ id: dataset.id, name: dataset.name });
+  };
+
+  const handleDataChanged = async () => {
+    const dataRes = await fetchDatasets();
+    setDatasets(dataRes.datasets || []);
   };
 
   // Model handlers
@@ -151,6 +203,7 @@ function App() {
     const modelRes = await fetchModels();
     setModels(modelRes.models || []);
     setActiveTab('models');
+    showToast('success', `Model "${config.name}" trained successfully`);
   };
 
   const handleDeleteModel = async (modelId: string) => {
@@ -159,8 +212,22 @@ function App() {
       await deleteModel(modelId);
       const modelRes = await fetchModels();
       setModels(modelRes.models || []);
+      showToast('success', 'Model deleted');
     } catch (error) {
       console.error('Failed to delete model:', error);
+      showToast('error', 'Failed to delete model');
+    }
+  };
+
+  const handleToggleFavorite = async (modelId: string) => {
+    try {
+      const result = await toggleModelFavorite(modelId);
+      setModels(prev => prev.map(m =>
+        m.id === modelId ? { ...m, is_favorite: result.is_favorite } : m
+      ));
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      showToast('error', 'Failed to update favorite');
     }
   };
 
@@ -181,14 +248,17 @@ function App() {
   const handleSinglePredict = async (
     modelId: string,
     inputData: Record<string, number>,
-    label?: string
+    label?: string,
+    withConfidence?: boolean
   ) => {
-    const result = await createSinglePrediction(modelId, inputData, label);
+    const result = await createSinglePrediction(modelId, inputData, label, withConfidence);
     if (result.error) {
       throw new Error(result.detail || result.error);
     }
     const predRes = await fetchPredictions();
     setPredictions(predRes.predictions || []);
+    const predValue = Number(result.prediction.predicted_value);
+    showToast('success', `Prediction: ${isNaN(predValue) ? result.prediction.predicted_value : predValue.toFixed(2)}`);
     return result;
   };
 
@@ -203,6 +273,7 @@ function App() {
     }
     const predRes = await fetchPredictions();
     setPredictions(predRes.predictions || []);
+    showToast('success', `${result.predictions.length} predictions generated`);
     return result;
   };
 
@@ -211,14 +282,16 @@ function App() {
     try {
       await clearPredictions();
       setPredictions([]);
+      showToast('success', 'All predictions cleared');
     } catch (error) {
       console.error('Failed to clear predictions:', error);
+      showToast('error', 'Failed to clear predictions');
     }
   };
 
   return (
     <div className="app-container">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} theme={theme} onThemeToggle={toggleTheme} />
       <main className="main-content">
         <header className="main-header">
           <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
@@ -233,6 +306,11 @@ function App() {
               predictions={predictions}
               loading={loading}
               onClear={handleClearPredictions}
+              onPredictionUpdated={async () => {
+                const predRes = await fetchPredictions();
+                setPredictions(predRes.predictions || []);
+              }}
+              onShowAccuracy={() => setShowAccuracyDashboard(true)}
             />
           )}
           {activeTab === 'models' && (
@@ -242,6 +320,11 @@ function App() {
               onPredict={handlePredict}
               onDelete={handleDeleteModel}
               onViewDetail={handleViewModelDetail}
+              onCompare={() => setComparingModels(true)}
+              onEnsemble={() => setShowEnsemble(true)}
+              onToggleFavorite={handleToggleFavorite}
+              onPin={(model) => setPinnedModel(pinnedModel?.id === model.id ? null : model)}
+              pinnedModelId={pinnedModel?.id}
             />
           )}
           {activeTab === 'data' && (
@@ -250,8 +333,10 @@ function App() {
               loading={loading}
               onUpload={handleUpload}
               onView={handleViewDataset}
+              onEdit={handleEditDataset}
               onUse={handleUseDataset}
               onDelete={handleDeleteDataset}
+              onImportUrl={() => setShowImportUrl(true)}
             />
           )}
         </div>
@@ -265,6 +350,9 @@ function App() {
           onClose={() => {
             setViewingDataset(null);
             setViewingStats(null);
+          }}
+          onVisualize={() => {
+            setVisualizingDataset({ id: viewingDataset.id, name: viewingDataset.name });
           }}
         />
       )}
@@ -290,6 +378,66 @@ function App() {
         <ModelDetailModal
           model={viewingModelDetail}
           onClose={() => setViewingModelDetail(null)}
+        />
+      )}
+
+      {editingDataset && (
+        <DataEditorModal
+          datasetId={editingDataset.id}
+          datasetName={editingDataset.name}
+          onClose={() => setEditingDataset(null)}
+          onDataChanged={handleDataChanged}
+        />
+      )}
+
+      {comparingModels && (
+        <ModelCompareModal
+          models={models}
+          onClose={() => setComparingModels(false)}
+        />
+      )}
+
+      {visualizingDataset && (
+        <DataVisualizationModal
+          datasetId={visualizingDataset.id}
+          datasetName={visualizingDataset.name}
+          onClose={() => setVisualizingDataset(null)}
+        />
+      )}
+
+      {showImportUrl && (
+        <ImportUrlModal
+          onClose={() => setShowImportUrl(false)}
+          onImported={async () => {
+            const dataRes = await fetchDatasets();
+            setDatasets(dataRes.datasets || []);
+            showToast('success', 'Dataset imported successfully');
+          }}
+        />
+      )}
+
+      {showAccuracyDashboard && (
+        <AccuracyDashboard
+          onClose={() => setShowAccuracyDashboard(false)}
+        />
+      )}
+
+      {showEnsemble && (
+        <EnsembleModal
+          onClose={() => setShowEnsemble(false)}
+        />
+      )}
+
+      {/* Quick Predict Bar */}
+      {pinnedModel && (
+        <QuickPredictBar
+          model={pinnedModel}
+          onUnpin={() => setPinnedModel(null)}
+          onPredictionMade={async (prediction) => {
+            const predRes = await fetchPredictions();
+            setPredictions(predRes.predictions || []);
+            showToast('success', `Prediction: ${prediction.toFixed(2)}`);
+          }}
         />
       )}
 

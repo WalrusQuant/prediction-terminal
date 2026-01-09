@@ -1,3 +1,5 @@
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+
 export interface ColumnStats {
   dtype: string;
   null_count: number;
@@ -29,9 +31,13 @@ interface DatasetDetailModalProps {
   dataset: DatasetDetails | null;
   stats: StatsData | null;
   onClose: () => void;
+  onVisualize?: () => void;
 }
 
-export function DatasetDetailModal({ dataset, stats, onClose }: DatasetDetailModalProps) {
+export function DatasetDetailModal({ dataset, stats, onClose, onVisualize }: DatasetDetailModalProps) {
+  // Keyboard shortcuts
+  useKeyboardShortcuts({ onEscape: onClose });
+
   if (!dataset) return null;
 
   return (
@@ -39,9 +45,24 @@ export function DatasetDetailModal({ dataset, stats, onClose }: DatasetDetailMod
       <div className="modal-content terminal-panel" onClick={e => e.stopPropagation()}>
         <div className="terminal-panel-header modal-header">
           <span>{dataset.name}</span>
-          <button onClick={onClose} style={{ padding: '4px 12px', fontSize: '11px' }}>
-            Close
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {onVisualize && (
+              <button
+                onClick={onVisualize}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '11px',
+                  color: 'var(--cyan)',
+                  borderColor: 'var(--cyan)',
+                }}
+              >
+                Visualize
+              </button>
+            )}
+            <button onClick={onClose} style={{ padding: '4px 12px', fontSize: '11px' }}>
+              Close
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: '16px' }}>

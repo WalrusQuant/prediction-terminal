@@ -13,11 +13,13 @@ interface DataPanelProps {
   loading: boolean;
   onUpload: (file: File) => void;
   onView: (dataset: Dataset) => void;
+  onEdit: (dataset: Dataset) => void;
   onUse: (dataset: Dataset) => void;
   onDelete: (datasetId: string) => void;
+  onImportUrl?: () => void;
 }
 
-export function DataPanel({ datasets, loading, onUpload, onView, onUse, onDelete }: DataPanelProps) {
+export function DataPanel({ datasets, loading, onUpload, onView, onEdit, onUse, onDelete, onImportUrl }: DataPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,9 +41,22 @@ export function DataPanel({ datasets, loading, onUpload, onView, onUse, onDelete
         alignItems: 'center'
       }}>
         <span>Datasets ({datasets.length})</span>
-        <button onClick={() => fileInputRef.current?.click()}>
-          + Upload CSV
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {onImportUrl && (
+            <button
+              onClick={onImportUrl}
+              style={{
+                color: 'var(--text-secondary)',
+                borderColor: 'var(--border-color)',
+              }}
+            >
+              Import URL
+            </button>
+          )}
+          <button onClick={() => fileInputRef.current?.click()}>
+            + Upload CSV
+          </button>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -85,6 +100,18 @@ export function DataPanel({ datasets, loading, onUpload, onView, onUse, onDelete
                     }}
                   >
                     View
+                  </button>
+                  <button
+                    onClick={() => onEdit(dataset)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      marginRight: '8px',
+                      color: 'var(--yellow)',
+                      borderColor: 'var(--yellow)'
+                    }}
+                  >
+                    Edit
                   </button>
                   <button
                     onClick={() => onUse(dataset)}

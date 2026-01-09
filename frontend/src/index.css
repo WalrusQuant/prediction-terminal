@@ -15,6 +15,21 @@
   --green: #2ed573;
 }
 
+/* Light Theme */
+[data-theme="light"] {
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8e8ec;
+  --border-color: #d1d1d6;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-muted: #8e8e93;
+  --cyan: #007a5e;
+  --red: #d70015;
+  --yellow: #b25000;
+  --green: #248a3d;
+}
+
 * {
   box-sizing: border-box;
 }

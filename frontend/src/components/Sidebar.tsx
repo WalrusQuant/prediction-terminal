@@ -1,6 +1,8 @@
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  theme: 'dark' | 'light';
+  onThemeToggle: () => void;
 }
 
 const tabs = [
@@ -9,7 +11,7 @@ const tabs = [
   { id: 'data', label: 'Data', icon: '▤' },
 ];
 
-export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, theme, onThemeToggle }: SidebarProps) {
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -27,6 +29,16 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           </button>
         ))}
       </nav>
+      <div className="sidebar-footer">
+        <button
+          className="theme-toggle"
+          onClick={onThemeToggle}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          <span className="theme-icon">{theme === 'dark' ? '☀' : '☾'}</span>
+          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        </button>
+      </div>
       <style>{`
         .sidebar {
           width: 200px;
@@ -73,6 +85,34 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         }
         .sidebar-icon {
           font-size: 14px;
+        }
+        .sidebar-footer {
+          margin-top: auto;
+          padding: 8px;
+          border-top: 1px solid var(--border-color);
+        }
+        .theme-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 12px;
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          text-align: left;
+          cursor: pointer;
+          border-radius: 4px;
+          font-size: 12px;
+          transition: all 0.15s ease;
+        }
+        .theme-toggle:hover {
+          background-color: var(--bg-tertiary);
+          color: var(--text-primary);
+          border: none;
+        }
+        .theme-icon {
+          font-size: 16px;
         }
       `}</style>
     </div>

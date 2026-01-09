@@ -14,6 +14,7 @@ interface Model {
   };
   created_at: string;
   last_run: string | null;
+  is_favorite?: boolean;
 }
 
 interface ModelsTableProps {
@@ -22,9 +23,20 @@ interface ModelsTableProps {
   onPredict: (model: Model) => void;
   onDelete: (modelId: string) => void;
   onViewDetail: (model: Model) => void;
+  onCompare: () => void;
+  onEnsemble?: () => void;
+  onToggleFavorite: (modelId: string) => void;
+  onPin?: (model: Model) => void;
+  pinnedModelId?: string | null;
 }
 
-export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail }: ModelsTableProps) {
+export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail, onCompare, onEnsemble, onToggleFavorite, onPin, pinnedModelId }: ModelsTableProps) {
+  // Sort models: favorites first, then by created date
+  const sortedModels = [...models].sort((a, b) => {
+    if (a.is_favorite && !b.is_favorite) return -1;
+    if (!a.is_favorite && b.is_favorite) return 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
   if (loading) {
     return (
       <div className="terminal-panel">
@@ -49,12 +61,45 @@ export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail
 
   return (
     <div className="terminal-panel">
-      <div className="terminal-panel-header">
-        Models ({models.length})
+      <div className="terminal-panel-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <span>Models ({models.length})</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {models.filter(m => m.metrics).length >= 2 && onEnsemble && (
+            <button
+              onClick={onEnsemble}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                color: 'var(--yellow)',
+                borderColor: 'var(--yellow)'
+              }}
+            >
+              Ensemble
+            </button>
+          )}
+          {models.filter(m => m.metrics).length >= 2 && (
+            <button
+              onClick={onCompare}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                color: 'var(--cyan)',
+                borderColor: 'var(--cyan)'
+              }}
+            >
+              Compare Models
+            </button>
+          )}
+        </div>
       </div>
       <table className="terminal-table">
         <thead>
           <tr>
+            <th style={{ width: '40px' }}></th>
             <th>Name</th>
             <th>Type</th>
             <th>Target</th>
@@ -67,8 +112,24 @@ export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail
           </tr>
         </thead>
         <tbody>
-          {models.map((model) => (
-            <tr key={model.id}>
+          {sortedModels.map((model) => (
+            <tr key={model.id} style={{ background: model.is_favorite ? 'rgba(0, 212, 170, 0.05)' : undefined }}>
+              <td style={{ width: '40px', textAlign: 'center' }}>
+                <button
+                  onClick={() => onToggleFavorite(model.id)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '14px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: model.is_favorite ? 'var(--yellow)' : 'var(--text-muted)',
+                  }}
+                  title={model.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  {model.is_favorite ? '★' : '☆'}
+                </button>
+              </td>
               <td>{model.name}</td>
               <td style={{ color: 'var(--text-secondary)' }}>
                 {formatModelType(model.model_type)}
@@ -114,6 +175,23 @@ export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail
                 >
                   Predict
                 </button>
+                {onPin && (
+                  <button
+                    onClick={() => onPin(model)}
+                    disabled={model.status !== 'trained'}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      marginRight: '8px',
+                      color: pinnedModelId === model.id ? 'var(--yellow)' : 'var(--text-secondary)',
+                      borderColor: pinnedModelId === model.id ? 'var(--yellow)' : 'var(--border-color)',
+                      background: pinnedModelId === model.id ? 'rgba(255, 165, 2, 0.1)' : 'transparent',
+                    }}
+                    title={pinnedModelId === model.id ? 'Pinned for quick predict' : 'Pin for quick predict'}
+                  >
+                    {pinnedModelId === model.id ? '★ Pinned' : 'Pin'}
+                  </button>
+                )}
                 <button
                   onClick={() => onDelete(model.id)}
                   style={{
