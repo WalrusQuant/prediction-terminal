@@ -42,3 +42,10 @@ coverage/
 # Private docs
 ROADMAP.md
 PITCH.md
+
+# Local data (user datasets, models, predictions)
+backend/datasets/
+backend/snapshots/
+backend/predictions/
+backend/trained_models/
+backend/models_metadata.json
