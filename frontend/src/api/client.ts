@@ -208,6 +208,15 @@ export async function toggleModelFavorite(modelId: string): Promise<{ model_id: 
   return response.json();
 }
 
+export async function renameModel(modelId: string, name: string): Promise<{ model_id: string; name: string }> {
+  const response = await fetch(`${API_BASE}/models/${modelId}/rename`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return response.json();
+}
+
 // Prediction endpoints
 export async function fetchPredictions() {
   const response = await fetch(`${API_BASE}/predictions/`);

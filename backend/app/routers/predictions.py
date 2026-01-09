@@ -41,6 +41,19 @@ def _load_predictions():
 _load_predictions()
 
 
+def update_model_name_in_predictions(model_id: str, new_name: str):
+    """Update model_name for all predictions with the given model_id."""
+    _load_predictions()
+    updated = False
+    for pred_id, pred in predictions_history.items():
+        if pred.get("model_id") == model_id:
+            pred["model_name"] = new_name
+            updated = True
+    if updated:
+        _save_predictions()
+    return updated
+
+
 class SinglePredictionRequest(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 

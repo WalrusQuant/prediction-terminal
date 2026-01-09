@@ -2,7 +2,7 @@
   "pred_97dd43c5": {
     "id": "pred_97dd43c5",
     "model_id": "model_5e75dfbf",
-    "model_name": "nba test 2",
+    "model_name": "nba test - XGBoost",
     "label": "XGBOOST",
     "target": "team_score",
     "predicted_value": 112.3265,
@@ -22,7 +22,7 @@
   "pred_6888dcd4": {
     "id": "pred_6888dcd4",
     "model_id": "model_400ee693",
-    "model_name": "nba test 2",
+    "model_name": "nba test - Random Forest",
     "label": "randome forest",
     "target": "team_score",
     "predicted_value": 117.2526,

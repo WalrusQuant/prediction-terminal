@@ -230,6 +230,35 @@ async def toggle_model_favorite(model_id: str):
     }
 
 
+class RenameModelRequest(BaseModel):
+    name: str
+
+
+@router.patch("/{model_id}/rename")
+async def rename_model(model_id: str, request: RenameModelRequest):
+    """Rename a model and update all associated predictions."""
+    from app.routers.predictions import update_model_name_in_predictions
+
+    _load_persisted_models()
+    if model_id not in models_registry:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    new_name = request.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+    models_registry[model_id]["name"] = new_name
+    _save_models_metadata()
+
+    # Update model name in all existing predictions
+    update_model_name_in_predictions(model_id, new_name)
+
+    return {
+        "model_id": model_id,
+        "name": new_name
+    }
+
+
 @router.delete("/{model_id}")
 async def delete_model(model_id: str):
     _load_persisted_models()

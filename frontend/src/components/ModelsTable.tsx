@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface Model {
   id: string;
   name: string;
@@ -26,11 +28,35 @@ interface ModelsTableProps {
   onCompare: () => void;
   onEnsemble?: () => void;
   onToggleFavorite: (modelId: string) => void;
+  onRename?: (modelId: string, newName: string) => void;
   onPin?: (model: Model) => void;
   pinnedModelId?: string | null;
 }
 
-export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail, onCompare, onEnsemble, onToggleFavorite, onPin, pinnedModelId }: ModelsTableProps) {
+export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail, onCompare, onEnsemble, onToggleFavorite, onRename, onPin, pinnedModelId }: ModelsTableProps) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const handleStartEdit = (model: Model) => {
+    setEditingId(model.id);
+    setEditName(model.name);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingId && editName.trim() && onRename) {
+      onRename(editingId, editName.trim());
+    }
+    setEditingId(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      setEditingId(null);
+    }
+  };
+
   // Sort models: favorites first, then by created date
   const sortedModels = [...models].sort((a, b) => {
     if (a.is_favorite && !b.is_favorite) return -1;
@@ -130,7 +156,37 @@ export function ModelsTable({ models, loading, onPredict, onDelete, onViewDetail
                   {model.is_favorite ? '★' : '☆'}
                 </button>
               </td>
-              <td>{model.name}</td>
+              <td>
+                {editingId === model.id ? (
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleSaveEdit}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      padding: '2px 6px',
+                      fontSize: '12px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--cyan)',
+                      borderRadius: '2px',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                ) : (
+                  <span
+                    onClick={() => onRename && handleStartEdit(model)}
+                    style={{
+                      cursor: onRename ? 'pointer' : 'default',
+                    }}
+                    title={onRename ? 'Click to rename' : undefined}
+                  >
+                    {model.name}
+                  </span>
+                )}
+              </td>
               <td style={{ color: 'var(--text-secondary)' }}>
                 {formatModelType(model.model_type)}
               </td>

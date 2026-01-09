@@ -32,6 +32,7 @@ import {
   clearPredictions,
   deletePrediction,
   toggleModelFavorite,
+  renameModel,
 } from './api/client';
 
 interface Dataset {
@@ -333,6 +334,19 @@ function App() {
               onCompare={() => setComparingModels(true)}
               onEnsemble={() => setShowEnsemble(true)}
               onToggleFavorite={handleToggleFavorite}
+              onRename={async (modelId, newName) => {
+                try {
+                  await renameModel(modelId, newName);
+                  const [modelsRes, predRes] = await Promise.all([
+                    fetchModels(),
+                    fetchPredictions(),
+                  ]);
+                  setModels(modelsRes.models || []);
+                  setPredictions(predRes.predictions || []);
+                } catch (err) {
+                  console.error('Failed to rename model:', err);
+                }
+              }}
               onPin={(model) => setPinnedModel(pinnedModel?.id === model.id ? null : model)}
               pinnedModelId={pinnedModel?.id}
             />
