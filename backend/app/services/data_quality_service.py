@@ -29,6 +29,16 @@ class DataQualityService:
         Returns:
             Dictionary with quality analysis results
         """
+        # Convert columns to numeric where possible (JSON loading may store numbers as strings)
+        df = df.copy()
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                original_non_null = df[col].notna().sum()
+                converted = pd.to_numeric(df[col], errors='coerce')
+                converted_non_null = converted.notna().sum()
+                if original_non_null > 0 and converted_non_null >= original_non_null * 0.5:
+                    df[col] = converted
+
         total_rows = len(df)
         total_cols = len(df.columns)
 
@@ -146,6 +156,16 @@ class DataQualityService:
             Tuple of (cleaned_df, summary of changes)
         """
         df = df.copy()
+
+        # Convert columns to numeric where possible (JSON loading may store numbers as strings)
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                original_non_null = df[col].notna().sum()
+                converted = pd.to_numeric(df[col], errors='coerce')
+                converted_non_null = converted.notna().sum()
+                if original_non_null > 0 and converted_non_null >= original_non_null * 0.5:
+                    df[col] = converted
+
         summary = {
             "rows_before": len(df),
             "columns_before": len(df.columns),

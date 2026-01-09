@@ -29,16 +29,27 @@ export function DataVisualizationModal({
 }: DataVisualizationModalProps) {
   const [data, setData] = useState<VisualizationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scatterLoading, setScatterLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'histograms' | 'scatter'>('histograms');
   const [selectedColumn, setSelectedColumn] = useState<string>('');
-  const [selectedScatterIdx, setSelectedScatterIdx] = useState(0);
+  const [scatterXColumn, setScatterXColumn] = useState<string>('');
+  const [scatterYColumn, setScatterYColumn] = useState<string>('');
+  const [sampleSize, setSampleSize] = useState<number>(500);
+  const [currentScatter, setCurrentScatter] = useState<VisualizationData['scatter_pairs'][0] | null>(null);
 
   useKeyboardShortcuts({ onEscape: onClose });
 
   useEffect(() => {
     loadVisualization();
   }, [datasetId]);
+
+  // Load scatter data when columns or sample size change
+  useEffect(() => {
+    if (scatterXColumn && scatterYColumn && scatterXColumn !== scatterYColumn) {
+      loadScatterData();
+    }
+  }, [scatterXColumn, scatterYColumn, sampleSize]);
 
   const loadVisualization = async () => {
     setLoading(true);
@@ -48,11 +59,39 @@ export function DataVisualizationModal({
       setData(vizData);
       if (vizData.numeric_columns.length > 0) {
         setSelectedColumn(vizData.numeric_columns[0]);
+        // Set initial scatter columns
+        if (vizData.numeric_columns.length >= 2) {
+          setScatterXColumn(vizData.numeric_columns[0]);
+          setScatterYColumn(vizData.numeric_columns[1]);
+        }
+      }
+      // Set initial scatter data from default pairs
+      if (vizData.scatter_pairs.length > 0) {
+        setCurrentScatter(vizData.scatter_pairs[0]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load visualization');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadScatterData = async () => {
+    if (!scatterXColumn || !scatterYColumn) return;
+    setScatterLoading(true);
+    try {
+      const vizData = await fetchDatasetVisualization(datasetId, {
+        x_column: scatterXColumn,
+        y_column: scatterYColumn,
+        sample_size: sampleSize,
+      });
+      if (vizData.scatter_pairs.length > 0) {
+        setCurrentScatter(vizData.scatter_pairs[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load scatter data:', err);
+    } finally {
+      setScatterLoading(false);
     }
   };
 
@@ -101,7 +140,6 @@ export function DataVisualizationModal({
   }
 
   const histogramData = selectedColumn ? data.histograms[selectedColumn] : null;
-  const currentScatter = data.scatter_pairs[selectedScatterIdx];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -186,8 +224,8 @@ export function DataVisualizationModal({
                   }}>
                     Distribution of {selectedColumn}
                   </h3>
-                  <div style={{ height: '350px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div style={{ height: '350px', minWidth: 0 }}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
                       <BarChart data={histogramData} margin={{ top: 10, right: 20, bottom: 60, left: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
                         <XAxis
@@ -207,6 +245,7 @@ export function DataVisualizationModal({
                             border: '1px solid var(--border-color)',
                             borderRadius: '4px',
                             fontSize: '11px',
+                            color: 'var(--text-primary)',
                           }}
                           formatter={(value) => [typeof value === 'number' ? value.toLocaleString() : String(value), 'Count']}
                           labelFormatter={(label) => `Range: ${label}`}
@@ -254,41 +293,97 @@ export function DataVisualizationModal({
 
           {activeTab === 'scatter' && (
             <div>
-              {data.scatter_pairs.length === 0 ? (
+              {data.numeric_columns.length < 2 ? (
                 <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   Need at least 2 numeric columns for scatter plots
                 </div>
               ) : (
                 <>
-                  {/* Pair Selector */}
-                  <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Column Pair:</span>
-                    <select
-                      value={selectedScatterIdx}
-                      onChange={(e) => setSelectedScatterIdx(Number(e.target.value))}
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-primary)',
-                      }}
-                    >
-                      {data.scatter_pairs.map((pair, idx) => (
-                        <option key={idx} value={idx}>
-                          {pair.x_column} vs {pair.y_column}
-                        </option>
-                      ))}
-                    </select>
+                  {/* Column Selectors and Sample Size */}
+                  <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>X Axis:</span>
+                      <select
+                        value={scatterXColumn}
+                        onChange={(e) => setScatterXColumn(e.target.value)}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--text-primary)',
+                          minWidth: '140px',
+                        }}
+                      >
+                        {data.numeric_columns.map((col) => (
+                          <option key={col} value={col}>
+                            {col}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Y Axis:</span>
+                      <select
+                        value={scatterYColumn}
+                        onChange={(e) => setScatterYColumn(e.target.value)}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--text-primary)',
+                          minWidth: '140px',
+                        }}
+                      >
+                        {data.numeric_columns.map((col) => (
+                          <option key={col} value={col}>
+                            {col}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sample:</span>
+                      <input
+                        type="number"
+                        value={sampleSize}
+                        onChange={(e) => setSampleSize(Math.max(100, Math.min(5000, Number(e.target.value) || 500)))}
+                        min={100}
+                        max={5000}
+                        step={100}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--text-primary)',
+                          width: '80px',
+                        }}
+                      />
+                    </div>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {currentScatter?.data.length.toLocaleString()} points
-                      {currentScatter?.data.length === 500 && ' (sampled)'}
+                      {scatterLoading ? 'Loading...' : currentScatter ? (
+                        <>
+                          {currentScatter.data.length.toLocaleString()} points
+                          {currentScatter.sampled && ` of ${currentScatter.total_points?.toLocaleString()}`}
+                        </>
+                      ) : null}
                     </span>
                   </div>
 
+                  {/* Warning if same column selected */}
+                  {scatterXColumn === scatterYColumn && (
+                    <div style={{ padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '4px', marginBottom: '16px', color: 'var(--yellow)', fontSize: '12px' }}>
+                      Please select different columns for X and Y axes.
+                    </div>
+                  )}
+
                   {/* Scatter Chart */}
-                  {currentScatter && (
+                  {currentScatter && scatterXColumn !== scatterYColumn && (
                     <div style={{
                       background: 'var(--bg-tertiary)',
                       padding: '16px',
@@ -302,8 +397,8 @@ export function DataVisualizationModal({
                       }}>
                         {currentScatter.x_column} vs {currentScatter.y_column}
                       </h3>
-                      <div style={{ height: '400px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                      <div style={{ height: '400px', minWidth: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={350}>
                           <ScatterChart margin={{ top: 10, right: 20, bottom: 40, left: 40 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
                             <XAxis
@@ -326,6 +421,7 @@ export function DataVisualizationModal({
                                 border: '1px solid var(--border-color)',
                                 borderRadius: '4px',
                                 fontSize: '11px',
+                                color: 'var(--text-primary)',
                               }}
                               formatter={(value, name) => [typeof value === 'number' ? value.toFixed(2) : String(value), name]}
                             />
@@ -352,7 +448,7 @@ export function DataVisualizationModal({
           color: 'var(--text-muted)',
         }}>
           Visualizing {data.numeric_columns.length} numeric columns.
-          {activeTab === 'scatter' && ' Scatter plots are limited to the first 5 columns and sampled to 500 points.'}
+          {activeTab === 'scatter' && ' Select any columns and adjust sample size (100-5000).'}
         </div>
       </div>
     </div>

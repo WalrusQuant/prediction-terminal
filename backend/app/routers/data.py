@@ -345,6 +345,15 @@ async def get_dataset_stats(dataset_id: str):
     ds = datasets[dataset_id]
     df = pd.DataFrame(ds["data"])
 
+    # Convert columns to numeric where possible (JSON loading may store numbers as strings)
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            original_non_null = df[col].notna().sum()
+            converted = pd.to_numeric(df[col], errors='coerce')
+            converted_non_null = converted.notna().sum()
+            if original_non_null > 0 and converted_non_null >= original_non_null * 0.5:
+                df[col] = converted
+
     columns_stats = {}
     for col in df.columns:
         col_stats = {
@@ -606,6 +615,15 @@ async def get_feature_correlations(dataset_id: str, threshold: float = 0.7):
     try:
         df = pd.DataFrame(datasets[dataset_id]["data"])
 
+        # Convert columns to numeric where possible (JSON loading may store numbers as strings)
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                original_non_null = df[col].notna().sum()
+                converted = pd.to_numeric(df[col], errors='coerce')
+                converted_non_null = converted.notna().sum()
+                if original_non_null > 0 and converted_non_null >= original_non_null * 0.5:
+                    df[col] = converted
+
         # Select only numeric columns
         numeric_df = df.select_dtypes(include=[np.number])
 
@@ -656,12 +674,40 @@ async def get_feature_correlations(dataset_id: str, threshold: float = 0.7):
 
 
 @router.get("/{dataset_id}/visualization")
-async def get_dataset_visualization(dataset_id: str, column: Optional[str] = None):
-    """Get visualization data for dataset columns (histograms, scatter data)."""
+async def get_dataset_visualization(
+    dataset_id: str,
+    column: Optional[str] = None,
+    x_column: Optional[str] = None,
+    y_column: Optional[str] = None,
+    sample_size: int = 500
+):
+    """Get visualization data for dataset columns (histograms, scatter data).
+
+    Args:
+        dataset_id: The dataset ID
+        column: Optional specific column for histogram
+        x_column: Optional X column for scatter plot
+        y_column: Optional Y column for scatter plot
+        sample_size: Number of points for scatter plot (default 500, max 5000)
+    """
+    # Clamp sample size
+    sample_size = max(100, min(sample_size, 5000))
     if dataset_id not in datasets:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
     df = pd.DataFrame(datasets[dataset_id]["data"])
+
+    # Convert columns to numeric where possible (JSON loading may store numbers as strings)
+    # Use errors='coerce' to convert non-numeric values to NaN, then check if column is mostly numeric
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            original_non_null = df[col].notna().sum()
+            converted = pd.to_numeric(df[col], errors='coerce')
+            converted_non_null = converted.notna().sum()
+            # Only use conversion if we didn't lose more than 50% of the data
+            if original_non_null > 0 and converted_non_null >= original_non_null * 0.5:
+                df[col] = converted
+
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 
     result = {
@@ -671,8 +717,8 @@ async def get_dataset_visualization(dataset_id: str, column: Optional[str] = Non
         "scatter_pairs": [],
     }
 
-    # Generate histograms for numeric columns
-    cols_to_process = [column] if column and column in numeric_cols else numeric_cols[:10]  # Limit to 10 columns
+    # Generate histograms for numeric columns (all of them - histogram computation is fast)
+    cols_to_process = [column] if column and column in numeric_cols else numeric_cols
     for col in cols_to_process:
         try:
             col_data = df[col].dropna()
@@ -694,30 +740,55 @@ async def get_dataset_visualization(dataset_id: str, column: Optional[str] = Non
         except Exception:
             pass
 
-    # Generate scatter plot pairs (first 5 numeric columns)
+    # Generate scatter plot data
     if len(numeric_cols) >= 2:
-        scatter_cols = numeric_cols[:5]
-        for i in range(len(scatter_cols)):
-            for j in range(i + 1, len(scatter_cols)):
-                col1, col2 = scatter_cols[i], scatter_cols[j]
-                try:
-                    # Sample if too many points
-                    sample_df = df[[col1, col2]].dropna()
-                    if len(sample_df) > 500:
-                        sample_df = sample_df.sample(500, random_state=42)
+        # If specific columns requested, generate just that pair
+        if x_column and y_column and x_column in numeric_cols and y_column in numeric_cols:
+            try:
+                sample_df = df[[x_column, y_column]].dropna()
+                if len(sample_df) > sample_size:
+                    sample_df = sample_df.sample(sample_size, random_state=42)
 
-                    scatter_data = [
-                        {"x": float(row[col1]), "y": float(row[col2])}
-                        for _, row in sample_df.iterrows()
-                    ]
-                    result["scatter_pairs"].append({
-                        "x_column": col1,
-                        "y_column": col2,
-                        "data": scatter_data
-                    })
-                except Exception:
-                    pass
+                scatter_data = [
+                    {"x": float(row[x_column]), "y": float(row[y_column])}
+                    for _, row in sample_df.iterrows()
+                ]
+                result["scatter_pairs"].append({
+                    "x_column": x_column,
+                    "y_column": y_column,
+                    "data": scatter_data,
+                    "total_points": len(df[[x_column, y_column]].dropna()),
+                    "sampled": len(sample_df) < len(df[[x_column, y_column]].dropna())
+                })
+            except Exception:
+                pass
+        else:
+            # Default: generate pairs for first 5 columns
+            scatter_cols = numeric_cols[:5]
+            for i in range(len(scatter_cols)):
+                for j in range(i + 1, len(scatter_cols)):
+                    col1, col2 = scatter_cols[i], scatter_cols[j]
+                    try:
+                        sample_df = df[[col1, col2]].dropna()
+                        total_points = len(sample_df)
+                        if len(sample_df) > sample_size:
+                            sample_df = sample_df.sample(sample_size, random_state=42)
 
+                        scatter_data = [
+                            {"x": float(row[col1]), "y": float(row[col2])}
+                            for _, row in sample_df.iterrows()
+                        ]
+                        result["scatter_pairs"].append({
+                            "x_column": col1,
+                            "y_column": col2,
+                            "data": scatter_data,
+                            "total_points": total_points,
+                            "sampled": len(sample_df) < total_points
+                        })
+                    except Exception:
+                        pass
+
+    result["sample_size"] = sample_size
     return result
 
 

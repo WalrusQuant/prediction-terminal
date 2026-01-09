@@ -361,7 +361,8 @@ export function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
                           background: 'var(--bg-secondary)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '4px',
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          color: 'var(--text-primary)',
                         }}
                         formatter={(value) => typeof value === 'number' ? value.toFixed(2) : value}
                       />
@@ -424,7 +425,8 @@ export function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
                           background: 'var(--bg-secondary)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '4px',
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          color: 'var(--text-primary)',
                         }}
                       />
                       <Bar dataKey="count" fill="var(--yellow)" />
@@ -547,7 +549,8 @@ export function ModelDetailModal({ model, onClose }: ModelDetailModalProps) {
                           background: 'var(--bg-secondary)',
                           border: '1px solid var(--border-color)',
                           borderRadius: '4px',
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          color: 'var(--text-primary)',
                         }}
                         formatter={(value) => typeof value === 'number' ? [(value * 100).toFixed(2) + '%', 'Importance'] : value}
                       />

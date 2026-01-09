@@ -275,6 +275,8 @@ export interface ScatterPair {
   x_column: string;
   y_column: string;
   data: { x: number; y: number }[];
+  total_points?: number;
+  sampled?: boolean;
 }
 
 export interface VisualizationData {
@@ -282,14 +284,29 @@ export interface VisualizationData {
   numeric_columns: string[];
   histograms: Record<string, HistogramBin[]>;
   scatter_pairs: ScatterPair[];
+  sample_size?: number;
+}
+
+export interface VisualizationOptions {
+  column?: string;
+  x_column?: string;
+  y_column?: string;
+  sample_size?: number;
 }
 
 export async function fetchDatasetVisualization(
   datasetId: string,
-  column?: string
+  options?: VisualizationOptions
 ): Promise<VisualizationData> {
-  const url = column
-    ? `${API_BASE}/data/${datasetId}/visualization?column=${column}`
+  const params = new URLSearchParams();
+  if (options?.column) params.append('column', options.column);
+  if (options?.x_column) params.append('x_column', options.x_column);
+  if (options?.y_column) params.append('y_column', options.y_column);
+  if (options?.sample_size) params.append('sample_size', options.sample_size.toString());
+
+  const queryString = params.toString();
+  const url = queryString
+    ? `${API_BASE}/data/${datasetId}/visualization?${queryString}`
     : `${API_BASE}/data/${datasetId}/visualization`;
   const response = await fetch(url);
   return response.json();

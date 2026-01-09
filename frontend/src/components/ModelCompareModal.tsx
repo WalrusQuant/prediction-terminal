@@ -264,6 +264,8 @@ export function ModelCompareModal({ models, onClose }: ModelCompareModalProps) {
                             background: 'var(--bg-secondary)',
                             border: '1px solid var(--border-color)',
                             borderRadius: '4px',
+                            fontSize: '11px',
+                            color: 'var(--text-primary)',
                           }}
                         />
                         <Legend />
