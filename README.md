@@ -74,11 +74,12 @@ Frontend runs at http://localhost:5173
   - Time-Based Split - Chronological splitting for time series
   - Walk-Forward Cross-Validation - Rolling window validation
 
-### Hyperparameter Tuning
-- **Automated Tuning**: Grid search and random search optimization
-- **Parameter Recommendations**: Suggested parameter grids per model type
-- **Cross-Validation**: Robust parameter evaluation
-- **Linear Regression Variants**: Standard, Ridge, and Lasso options
+### Feature Analysis
+- **Correlation Analysis**: See how each feature correlates with your target variable
+- **Leakage Detection**: Automatic warnings for features with suspiciously high correlation (>0.85)
+- **Smart Recommendations**: Features classified as Good, Moderate, Weak, Caution, or Avoid
+- **One-Click Selection**: "Select Recommended" to quickly choose optimal features
+- **Informed Decisions**: Understand which features will actually help your model
 
 ### Model Analytics
 - **Performance Metrics**:
@@ -241,9 +242,11 @@ The application features a dark terminal-themed UI with:
 2. **Analyze Quality**: Use data editor to check for missing values, duplicates, and outliers
 3. **Clean Data**: Apply cleaning operations (fill missing, remove duplicates/outliers)
 4. **Engineer Features**: Create new features (rolling averages, ratios, lags, etc.)
-5. **Train Model**: Select features, target, and split strategy; optionally tune hyperparameters
-6. **Review Model**: View detailed analytics, feature importance, and performance charts
-7. **Compare Models**: Use model comparison to evaluate multiple models side-by-side
-8. **Create Ensembles**: Combine compatible models for improved predictions
-9. **Make Predictions**: Enter data manually or upload CSV; save templates for reuse
-10. **Track Accuracy**: Update predictions with actual values to monitor model performance
+5. **Analyze Features**: Select target, click "Analyze" to see correlations and detect potential data leakage
+6. **Select Features**: Use recommendations to choose features, or "Select Recommended" for optimal selection
+7. **Train Model**: Choose model type and split strategy, then train
+8. **Review Model**: View detailed analytics, feature importance, and performance charts
+9. **Compare Models**: Use model comparison to evaluate multiple models side-by-side
+10. **Create Ensembles**: Combine compatible models for improved predictions
+11. **Make Predictions**: Enter data manually or upload CSV; save templates for reuse
+12. **Track Accuracy**: Update predictions with actual values to monitor model performance

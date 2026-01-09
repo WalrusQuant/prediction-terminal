@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Prediction Terminal is a comprehensive ML platform for building, training, and deploying predictive models for sports analytics. It features a terminal-styled web interface with data quality analysis, feature engineering, model ensembling, hyperparameter tuning, and prediction tracking. The application consists of a Python/FastAPI backend and a React/TypeScript frontend.
+Prediction Terminal is a comprehensive ML platform for building, training, and deploying predictive models for sports analytics. It features a terminal-styled web interface with data quality analysis, feature engineering, feature correlation analysis, model ensembling, and prediction tracking. The application consists of a Python/FastAPI backend and a React/TypeScript frontend.
 
 ## Development Commands
 
@@ -36,7 +36,7 @@ npm run lint     # ESLint
 
 #### Routers (API Route Handlers)
 - `backend/app/routers/data.py` - Dataset management (14 endpoints): upload, import from URL, stats, quality analysis, cleaning, feature engineering, visualization, correlations, history/snapshots
-- `backend/app/routers/models.py` - ML model operations (10 endpoints): training, management, ensemble predictions, hyperparameter tuning
+- `backend/app/routers/models.py` - ML model operations (10 endpoints): training, management, ensemble predictions, feature analysis
 - `backend/app/routers/predictions.py` - Prediction operations (7 endpoints): single/batch predictions, accuracy tracking, actual value updates
 - `backend/app/routers/templates.py` - Prediction input templates (5 endpoints): save/load reusable input configurations
 
@@ -45,7 +45,7 @@ npm run lint     # ESLint
 - `backend/app/services/data_quality_service.py` - Data quality analysis: missing values, duplicates, constant columns, IQR-based outlier detection, cleaning operations
 - `backend/app/services/feature_engineering_service.py` - Feature creation: rolling average, ratio, difference, percentage change, lag features, product features
 - `backend/app/services/ensemble_service.py` - Model ensembling: weighted and median ensemble predictions, disagreement metrics, model correlation
-- `backend/app/services/tuning_service.py` - Hyperparameter optimization: grid search, random search, parameter recommendations per model type
+- `backend/app/services/tuning_service.py` - Hyperparameter optimization (disabled in UI): grid search, random search, parameter recommendations per model type
 - `backend/app/services/preprocessing_service.py` - Data preprocessing pipeline: column type detection, one-hot encoding, scaling, sklearn Pipeline integration
 - `backend/app/services/validation_service.py` - Time-aware validation: date column detection, time-based splits, walk-forward cross-validation
 
@@ -74,7 +74,8 @@ npm run lint     # ESLint
 - `FeatureEngineerModal.tsx` - Feature creation interface
 
 **Model Management:**
-- `TrainModelModal.tsx` - Model training with feature selection, split strategies, hyperparameter tuning, correlation warnings (~860 lines)
+- `TrainModelModal.tsx` - Model training with feature selection, split strategies, correlation warnings (~860 lines)
+- `FeatureAnalysisModal.tsx` - Feature-target correlation analysis with leakage detection and recommendations
 - `ModelsTable.tsx` - Model list with metrics, favorites, comparison
 - `ModelDetailModal.tsx` - Model analytics, charts, feature importance, residuals
 - `ModelCompareModal.tsx` - Side-by-side model comparison
@@ -94,10 +95,11 @@ npm run lint     # ESLint
 ### Data Flow
 1. User uploads CSV or imports from URL via DataPanel -> stored in backend datasets/
 2. User analyzes data quality, cleans data, engineers features via DataEditorModal -> snapshots saved for undo
-3. User selects dataset and trains model via TrainModelModal -> MLService trains, validates, persists model
-4. User views model analytics via ModelDetailModal -> visualizations and metrics displayed
-5. User makes predictions via PredictModal -> MLService loads model, returns predictions with confidence intervals
-6. User tracks accuracy via AccuracyDashboard -> actual values compared to predictions
+3. User selects target, uses Feature Analysis to understand correlations and select optimal features
+4. User trains model via TrainModelModal -> MLService trains, validates, persists model
+5. User views model analytics via ModelDetailModal -> visualizations and metrics displayed
+6. User makes predictions via PredictModal -> MLService loads model, returns predictions with confidence intervals
+7. User tracks accuracy via AccuracyDashboard -> actual values compared to predictions
 
 ### API Base URL
 Frontend expects backend at `http://localhost:8000/api`. CORS is configured for localhost:5173 and localhost:3000.
