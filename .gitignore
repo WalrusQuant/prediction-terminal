@@ -38,3 +38,7 @@ coverage/
 *.pkl
 *.joblib
 *.h5
+
+# Private docs
+ROADMAP.md
+PITCH.md
