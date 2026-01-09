@@ -431,3 +431,134 @@ async def tune_model(request: TuneModelRequest):
 async def get_tuning_recommendations(model_type: str):
     """Get recommended parameters for a model type."""
     return tuning_service.get_recommended_params(model_type)
+
+
+class FeatureAnalysisRequest(BaseModel):
+    dataset_id: str
+    target: str
+
+
+@router.post("/analyze-features")
+async def analyze_features(request: FeatureAnalysisRequest):
+    """Analyze feature correlations with target to help with feature selection.
+
+    Returns correlation of each feature with target, flags potential data leakage,
+    and suggests which features to use or avoid.
+    """
+    import pandas as pd
+    import numpy as np
+
+    if request.dataset_id not in datasets:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    dataset = datasets[request.dataset_id]
+    df = pd.DataFrame(dataset["data"])
+
+    if request.target not in df.columns:
+        raise HTTPException(status_code=400, detail=f"Target '{request.target}' not in dataset")
+
+    # Convert columns to numeric where possible
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            converted = pd.to_numeric(df[col], errors='coerce')
+            if converted.notna().sum() >= len(df) * 0.5:
+                df[col] = converted
+
+    # Get target column
+    target_series = df[request.target]
+    if not pd.api.types.is_numeric_dtype(target_series):
+        target_series = pd.to_numeric(target_series, errors='coerce')
+
+    # Analyze each potential feature
+    feature_analysis = []
+    numeric_features = []
+
+    for col in df.columns:
+        if col == request.target:
+            continue
+
+        col_data = df[col]
+        is_numeric = pd.api.types.is_numeric_dtype(col_data)
+
+        analysis = {
+            "feature": col,
+            "dtype": str(df[col].dtype),
+            "is_numeric": is_numeric,
+            "missing_count": int(col_data.isna().sum()),
+            "missing_percent": round(col_data.isna().sum() / len(df) * 100, 1),
+            "unique_count": int(col_data.nunique()),
+            "correlation": None,
+            "abs_correlation": None,
+            "recommendation": "neutral",
+            "warning": None,
+        }
+
+        if is_numeric:
+            numeric_features.append(col)
+            # Calculate correlation with target
+            try:
+                valid_mask = col_data.notna() & target_series.notna()
+                if valid_mask.sum() > 10:
+                    corr = col_data[valid_mask].corr(target_series[valid_mask])
+                    if not pd.isna(corr):
+                        analysis["correlation"] = round(float(corr), 4)
+                        analysis["abs_correlation"] = round(abs(float(corr)), 4)
+
+                        # Classify the feature
+                        abs_corr = abs(corr)
+                        if abs_corr >= 0.95:
+                            analysis["recommendation"] = "avoid"
+                            analysis["warning"] = "Extremely high correlation - likely data leakage"
+                        elif abs_corr >= 0.85:
+                            analysis["recommendation"] = "caution"
+                            analysis["warning"] = "Very high correlation - possible data leakage"
+                        elif abs_corr >= 0.5:
+                            analysis["recommendation"] = "good"
+                        elif abs_corr >= 0.2:
+                            analysis["recommendation"] = "moderate"
+                        elif abs_corr >= 0.05:
+                            analysis["recommendation"] = "weak"
+                        else:
+                            analysis["recommendation"] = "very_weak"
+                            analysis["warning"] = "Very low correlation - may not be useful"
+            except Exception:
+                pass
+        else:
+            # Non-numeric feature
+            if analysis["unique_count"] <= 1:
+                analysis["recommendation"] = "avoid"
+                analysis["warning"] = "Constant value - no predictive power"
+            elif analysis["unique_count"] > len(df) * 0.9:
+                analysis["recommendation"] = "avoid"
+                analysis["warning"] = "Too many unique values - likely an ID column"
+            else:
+                analysis["recommendation"] = "categorical"
+                analysis["warning"] = "Categorical feature - will be encoded"
+
+        feature_analysis.append(analysis)
+
+    # Sort by absolute correlation (highest first), with non-numeric at end
+    feature_analysis.sort(
+        key=lambda x: (x["abs_correlation"] is None, -(x["abs_correlation"] or 0))
+    )
+
+    # Generate summary
+    good_features = [f["feature"] for f in feature_analysis if f["recommendation"] == "good"]
+    moderate_features = [f["feature"] for f in feature_analysis if f["recommendation"] == "moderate"]
+    caution_features = [f["feature"] for f in feature_analysis if f["recommendation"] == "caution"]
+    avoid_features = [f["feature"] for f in feature_analysis if f["recommendation"] == "avoid"]
+
+    return {
+        "target": request.target,
+        "total_features": len(feature_analysis),
+        "numeric_features": len(numeric_features),
+        "features": feature_analysis,
+        "summary": {
+            "good": good_features,
+            "moderate": moderate_features,
+            "caution": caution_features,
+            "avoid": avoid_features,
+        },
+        "suggestion": f"Consider using {len(good_features)} good features and {len(moderate_features)} moderate features. "
+                      f"{'Avoid ' + str(len(avoid_features)) + ' features with potential data leakage.' if avoid_features else ''}"
+    }

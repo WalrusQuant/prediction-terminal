@@ -624,3 +624,48 @@ export async function getTuningRecommendations(modelType: string): Promise<{
   const response = await fetch(`${API_BASE}/models/tune/recommendations/${modelType}`);
   return response.json();
 }
+
+// Feature Analysis
+export interface FeatureAnalysis {
+  feature: string;
+  dtype: string;
+  is_numeric: boolean;
+  missing_count: number;
+  missing_percent: number;
+  unique_count: number;
+  correlation: number | null;
+  abs_correlation: number | null;
+  recommendation: 'good' | 'moderate' | 'weak' | 'very_weak' | 'caution' | 'avoid' | 'categorical' | 'neutral';
+  warning: string | null;
+}
+
+export interface FeatureAnalysisResult {
+  target: string;
+  total_features: number;
+  numeric_features: number;
+  features: FeatureAnalysis[];
+  summary: {
+    good: string[];
+    moderate: string[];
+    caution: string[];
+    avoid: string[];
+  };
+  suggestion: string;
+}
+
+export async function analyzeFeatures(
+  datasetId: string,
+  target: string
+): Promise<FeatureAnalysisResult> {
+  const response = await fetch(`${API_BASE}/models/analyze-features`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      dataset_id: datasetId,
+      target,
+    }),
+  });
+  return response.json();
+}

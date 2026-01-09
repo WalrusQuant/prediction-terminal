@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { fetchDateColumns, fetchFeatureCorrelations, tuneModel, type CorrelationPair, type TuningResult } from '../api/client';
+import { fetchDateColumns, fetchFeatureCorrelations, type CorrelationPair } from '../api/client';
+// Tuning imports - commented out for now
+// import { tuneModel, type TuningResult } from '../api/client';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { FeatureAnalysisModal } from './FeatureAnalysisModal';
 
 const TRAINING_STEPS = [
   { id: 'prepare', label: 'Preparing data', duration: 1500 },
@@ -64,9 +67,12 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
   const [correlations, setCorrelations] = useState<CorrelationPair[]>([]);
   const [showCorrelationDetails, setShowCorrelationDetails] = useState(false);
 
-  // Tuning state
-  const [tuning, setTuning] = useState(false);
-  const [tuningResult, setTuningResult] = useState<TuningResult | null>(null);
+  // Tuning state - COMMENTED OUT (feature disabled for now)
+  // const [tuning, setTuning] = useState(false);
+  // const [tuningResult, setTuningResult] = useState<TuningResult | null>(null);
+
+  // Feature analysis state
+  const [showFeatureAnalysis, setShowFeatureAnalysis] = useState(false);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -145,6 +151,7 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
     setSelectedFeatures([]);
   };
 
+  /* COMMENTED OUT - Auto-tune feature disabled for now
   const handleAutoTune = async () => {
     if (!target) {
       setError('Please select a target variable before tuning');
@@ -178,6 +185,7 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
       setTuning(false);
     }
   };
+  */
 
   const handleSubmit = async () => {
     setError('');
@@ -288,9 +296,9 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
             </label>
             <select
               value={modelType}
-              onChange={e => { setModelType(e.target.value); setTuningResult(null); }}
+              onChange={e => { setModelType(e.target.value); }}
               style={{ width: '100%' }}
-              disabled={training || tuning}
+              disabled={training}
             >
               {MODEL_TYPES.map(mt => (
                 <option key={mt.value} value={mt.value}>
@@ -418,7 +426,11 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
               ))}
             </select>
 
-            {/* Auto-Tune Button - appears after target is selected */}
+            {/* AUTO-TUNE FEATURE - COMMENTED OUT FOR NOW
+                The feature analysis modal now handles feature selection guidance.
+                Hyperparameter tuning can be re-enabled in the future if we add
+                the ability to apply tuned parameters to model training.
+
             <button
               onClick={handleAutoTune}
               disabled={training || tuning || !target}
@@ -452,7 +464,6 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
               </div>
             )}
 
-            {/* Tuning Results */}
             {tuningResult && (
               <div style={{
                 marginTop: '12px',
@@ -476,7 +487,6 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
                   </span>
                 </div>
 
-                {/* Features Tested */}
                 <div style={{
                   marginBottom: '12px',
                   padding: '8px',
@@ -491,7 +501,6 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
                   </div>
                 </div>
 
-                {/* Score */}
                 <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
                   <div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Best CV Score (R²)</div>
@@ -509,7 +518,6 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
                   </div>
                 </div>
 
-                {/* Best Parameters with Explanations */}
                 <div style={{
                   padding: '8px',
                   background: 'var(--bg-tertiary)',
@@ -565,7 +573,6 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
                   </table>
                 </div>
 
-                {/* Action hint */}
                 <div style={{
                   marginTop: '12px',
                   padding: '8px',
@@ -580,6 +587,7 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
                 </div>
               </div>
             )}
+            END AUTO-TUNE FEATURE */}
           </div>
 
           <div>
@@ -598,6 +606,19 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
                 Features <span style={{ color: 'var(--cyan)' }}>(Input Variables)</span>
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setShowFeatureAnalysis(true)}
+                  disabled={training || !target}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    background: target ? 'var(--cyan)' : 'transparent',
+                    color: target ? 'var(--bg-primary)' : 'var(--text-muted)',
+                    borderColor: target ? 'var(--cyan)' : 'var(--border-color)',
+                  }}
+                >
+                  Analyze
+                </button>
                 <button
                   onClick={handleSelectAllFeatures}
                   disabled={training || !target}
@@ -853,6 +874,18 @@ export function TrainModelModal({ dataset, onTrain, onClose }: TrainModelModalPr
           </div>
         </div>
       </div>
+
+      {/* Feature Analysis Modal */}
+      {showFeatureAnalysis && target && (
+        <FeatureAnalysisModal
+          datasetId={dataset.id}
+          datasetName={dataset.name}
+          target={target}
+          currentFeatures={selectedFeatures}
+          onClose={() => setShowFeatureAnalysis(false)}
+          onApply={(features) => setSelectedFeatures(features)}
+        />
+      )}
     </div>
   );
 }
